@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, process, sync::Mutex};
 
-use anyhow::Ok;
+use anyhow::{Error, Ok};
 
 pub struct S {
     pub map: Mutex<HashMap<String, String>>,
@@ -83,12 +83,17 @@ where
     Req: std::fmt::Debug + Send + 'static,
     S: Send + 'static + volo::Service<Cx, Req> + Sync,
     S::Response: std::fmt::Debug,
-    S::Error: std::fmt::Debug,
+    S::Error: std::fmt::Debug + From<Error>,
     Cx: Send + 'static,
 {
     async fn call(&self, cx: &mut Cx, req: Req) -> Result<S::Response, S::Error> {
         let now = std::time::Instant::now();
         tracing::debug!("Received request {:?}", &req);
+        let info = format!("{:?}", &req);
+        println!("{}", info);
+        if info.contains("Illegal") {
+            return Err(S::Error::from(Error::msg("Illegal instruction")));
+        }
         let resp = self.0.call(cx, req).await;
         tracing::debug!("Sent response {:?}", &resp);
         tracing::info!("Request took {}ms", now.elapsed().as_millis());

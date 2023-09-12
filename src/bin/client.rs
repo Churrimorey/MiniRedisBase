@@ -1,6 +1,6 @@
 use lazy_static::lazy_static;
 use mini_redis_base::LogLayer;
-use std::{io, net::SocketAddr};
+use std::{io, net::SocketAddr, process};
 
 lazy_static! {
     static ref CLIENT: volo_gen::redis::base::RedisServiceClient = {
@@ -16,18 +16,19 @@ lazy_static! {
 async fn main() {
     tracing_subscriber::fmt::init();
     loop {
+        let mut flag = false;
         let mut input = String::new();
         io::stdin().read_line(&mut input).unwrap();
         let input = input.strip_suffix("\n").unwrap().to_string();
         let str_vec: Vec<String> = input.split(' ').map(|str| str.to_string()).collect();
-        println!("{:?}", &str_vec);
+        // println!("{:?}", &str_vec);
         let mut req = volo_gen::redis::base::RedisRequest {
             key: None,
             value: None,
             r#type: volo_gen::redis::base::RequestType::Illegal,
         };
         if str_vec[0] == "PING" {
-            println!("{}", input.strip_prefix("PING ").unwrap().to_string());
+            // println!("{}", input.strip_prefix("PING ").unwrap().to_string());
             req = volo_gen::redis::base::RedisRequest {
                 key: None,
                 value: Some(input.strip_prefix("PING ").unwrap().to_string().into()),
@@ -60,6 +61,7 @@ async fn main() {
                 }
             }
         } else if str_vec.len() == 1 && str_vec[0] == "exit" {
+            flag = true;
             req = volo_gen::redis::base::RedisRequest {
                 key: None,
                 value: None,
@@ -67,8 +69,11 @@ async fn main() {
             }
         }
         let resp = CLIENT.redis_command(req).await;
+        if flag {
+            process::exit(0);
+        }
         match resp {
-            Ok(info) => tracing::info!("{:?}", info),
+            Ok(info) => tracing::info!("{:?}", info.value.unwrap()),
             Err(e) => tracing::error!("{:?}", e),
         }
     }
